@@ -1,0 +1,60 @@
+# docker-compose.yml
+version: '3.8' # Especifica la versión de Docker Compose
+
+services:
+  # Servicio de la API Node.js
+  api:
+    build: . # Construye la imagen usando el Dockerfile en el directorio actual
+    ports:
+      - "3000:3000" # Mapea el puerto 3000 del host al 3000 del contenedor API
+    environment:
+      # Pasa las variables de entorno a la API Node.js
+      # IMPORTANTE: DB_HOST es el nombre del servicio de la base de datos ('db' en este caso)
+      - DB_HOST=db
+      - DB_USER=userapi # Usuario específico para la API (creado por MySQL)
+      - DB_PASSWORD=mach.312 # Contraseña para el usuario de la API
+      - DB_NAME=userdb # Nombre de la base de datos
+      - PORT=3000 # Puerto en el que corre la API dentro del contenedor
+    depends_on:
+      - db # Indica que el servicio 'api' depende del servicio 'db'
+    networks:
+      - app-network # Conecta este servicio a la red definida abajo
+
+  # Servicio de la Base de Datos MySQL
+  db:
+    image: mysql:8.0 # Usa la imagen oficial de MySQL versión 8.0
+    environment:
+      # Variables usadas por la imagen de MySQL para la inicialización
+      MYSQL_ROOT_PASSWORD: Mach.312  # Contraseña para el usuario root de MySQL (¡Cambia esto!)
+      MYSQL_DATABASE: userdb # Nombre de la base de datos a crear automáticamente
+      MYSQL_USER: userapi # Nombre del usuario a crear para la API
+      MYSQL_PASSWORD: mach.312 # Contraseña para el usuario 'userapi' (¡Cambia esto!)
+    volumes:
+      # 1. Monta el script de inicialización para crear la tabla 'users'
+      - ./mysql-init:/docker-entrypoint-initdb.d
+      # 2. Monta un volumen nombrado para persistir los datos de MySQL
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app-network # Conecta este servicio a la red definida abajo
+    # Opcional: Exponer puerto de MySQL al host para debugging (no recomendado en producción)
+    # ports:
+    #  - "3306:3306"
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    networks:
+      - app-network
+
+# Define la red personalizada para que los contenedores se comuniquen por nombre de servicio
+networks:
+  app-network:
+    driver: bridge # Tipo de red por defecto
+
+# Define el volumen nombrado para persistir los datos de MySQL
+volumes:
+  mysql_data:
